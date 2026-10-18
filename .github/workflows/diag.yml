@@ -1,0 +1,48 @@
+name: diag
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: 出口 IP 与归属
+        run: |
+          echo "== egress ip =="
+          curl -s -m 15 https://ipinfo.io/json || echo "ipinfo failed"
+          echo
+      - name: DNS 解析
+        run: |
+          for h in fapi.binance.com fapi1.binance.com fapi2.binance.com fapi.binance.vision data-api.binance.vision api.binance.com; do
+            printf "%-30s " "$h"
+            getent hosts "$h" | head -2 | tr '\n' ' '
+            echo
+          done
+      - name: 逐个测试接口
+        run: |
+          test_one () {
+            u="$1"
+            code=$(curl -s -m 20 -o /tmp/body.txt -w "%{http_code}" "$u" 2>/tmp/err.txt || echo "000")
+            size=$(wc -c < /tmp/body.txt)
+            printf "%-72s http=%s size=%s " "$u" "$code" "$size"
+            head -c 120 /tmp/body.txt | tr -d '\n'
+            echo
+          }
+          test_one "https://fapi.binance.com/fapi/v1/ping"
+          test_one "https://fapi1.binance.com/fapi/v1/ping"
+          test_one "https://fapi2.binance.com/fapi/v1/ping"
+          test_one "https://fapi3.binance.com/fapi/v1/ping"
+          test_one "https://fapi4.binance.com/fapi/v1/ping"
+          test_one "https://fapi.binance.vision/fapi/v1/ping"
+          test_one "https://fapi.binance.vision/fapi/v1/ticker/24hr?symbol=BTCUSDT"
+          test_one "https://data-api.binance.vision/api/v3/ticker/24hr?symbol=BTCUSDT"
+          test_one "https://api.binance.com/api/v3/ping"
+          test_one "https://api.coingecko.com/api/v3/ping"
+      - name: 带详细报错再看一次 fapi
+        run: |
+          curl -sv -m 20 "https://fapi.binance.com/fapi/v1/ping" 2>&1 | tail -25
