@@ -2,6 +2,7 @@ name: binance-futures-monitor
 
 on:
   schedule:
+    # 每 5 分钟一轮（GitHub 最短粒度，实际可能延迟 3~15 分钟）
     - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
