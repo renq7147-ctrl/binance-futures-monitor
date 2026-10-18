@@ -9,43 +9,40 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
-      - name: 出口位置
+      - name: 中转通道实测
         run: |
-          curl -s -m 15 "https://ipinfo.io/json" || echo "ipinfo failed"
-          echo
-      - name: vision 镜像重定向去向
-        run: |
-          echo "--- fapi.binance.vision 头信息 ---"
-          curl -sI -m 20 "https://fapi.binance.vision/fapi/v1/ping" | head -20
-          echo
-          echo "--- fapi.binance.vision 跟随重定向 ---"
-          curl -sL -m 25 -o /tmp/v.txt -w "final_http=%{http_code} url=%{url_effective} size=%{size_download}\n" \
-            "https://fapi.binance.vision/fapi/v1/ticker/24hr?symbol=BTCUSDT"
-          head -c 200 /tmp/v.txt; echo
-      - name: 其他官方域名
-        run: |
-          for u in \
-            "https://fapi.binance.vision/fapi/v1/ticker/24hr?symbol=BTCUSDT" \
-            "https://dapi.binance.vision/dapi/v1/ticker/24hr?symbol=BTCUSD_PERP" \
-            "https://data-api.binance.vision/api/v3/ticker/24hr?symbol=BTCUSDT" \
-            "https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=BTCUSDT" \
-            "https://api1.binance.com/api/v3/ping" ; do
-            printf "%-70s " "$u"
-            curl -sL -m 25 -o /tmp/b.txt -w "http=%{http_code} size=%{size_download} " "$u"
-            head -c 80 /tmp/b.txt | tr -d '\n'; echo
-          done
-      - name: 免费中转能否拿到全量行情
-        run: |
-          target="https://fapi.binance.com/fapi/v1/ticker/24hr"
+          set +e
+          target="https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=BTCUSDT"
           enc=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe=''))" "$target")
-          for u in \
-            "https://api.codetabs.com/v1/proxy?quest=$enc" \
-            "https://api.allorigins.win/raw?url=$enc" \
-            "https://corsproxy.io/?url=$enc" \
-            "https://r.jina.ai/$target" ; do
-            printf "%-95s " "${u:0:95}"
-            curl -sL -m 40 -o /tmp/r.txt -w "http=%{http_code} size=%{size_download} " "$u"
-            head -c 70 /tmp/r.txt | tr -d '\n'; echo
+          urls=(
+            "https://cors.isomorphic-git.org/$target"
+            "https://api.codetabs.com/v1/proxy?quest=$enc"
+            "https://api.allorigins.win/raw?url=$enc"
+            "https://corsproxy.io/?url=$enc"
+            "https://r.jina.ai/$target"
+            "https://api.cors.lol/?url=$enc"
+            "https://proxy.cors.sh/$target"
+            "https://thingproxy.freeboard.io/fetch/$target"
+            "https://test.cors.workers.dev/?$target"
+          )
+          for u in "${urls[@]}"; do
+            printf "%-60s " "${u:0:60}"
+            out=$(curl -sL -m 30 -o /tmp/r.txt -w "%{http_code}|%{size_download}" "$u")
+            printf "%-14s " "$out"
+            head -c 90 /tmp/r.txt | tr -d '\n' | tr -s ' '
+            echo
+          done
+          echo
+          echo "== 直接连（对照）=="
+          curl -s -m 15 -o /dev/null -w "fapi.binance.com http=%{http_code}\n" "https://fapi.binance.com/fapi/v1/ping"
+      - name: 全量行情体积
+        run: |
+          set +e
+          enc=$(python3 -c "import urllib.parse;print(urllib.parse.quote('https://fapi.binance.com/fapi/v1/ticker/24hr',safe=''))")
+          for u in "https://cors.isomorphic-git.org/https://fapi.binance.com/fapi/v1/ticker/24hr" \
+                   "https://api.codetabs.com/v1/proxy?quest=$enc"; do
+            printf "%-55s " "${u:0:55}"
+            curl -sL -m 60 -o /tmp/full.txt -w "http=%{http_code} size=%{size_download} time=%{time_total}s\n" "$u"
           done
