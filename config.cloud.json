@@ -1,0 +1,43 @@
+{
+  "threshold_percent": 120,
+  "interval_seconds": 300,
+  "min_quote_volume_usdt": 1000000,
+  "symbols_whitelist": [],
+  "symbols_blacklist": [],
+  "cooldown_seconds": 3600,
+  "reset_below_percent": 100,
+  "notify_on_start": true,
+  "proxy": "",
+  "auto_detect_proxy": false,
+  "base_urls": [
+    "https://fapi.binance.com",
+    "https://fapi1.binance.com",
+    "https://fapi2.binance.com",
+    "https://fapi3.binance.com",
+    "https://fapi4.binance.com"
+  ],
+  "timeout_seconds": 20,
+  "verbose": true,
+  "state_path": "state/state.json",
+  "cache_dir": "state",
+  "log_dir": "state/logs",
+  "push": {
+    "serverchan": {
+      "enabled": false,
+      "send_key": ""
+    },
+    "pushplus": {
+      "enabled": false,
+      "token": "",
+      "topic": ""
+    },
+    "wecom_bot": {
+      "enabled": true,
+      "webhook_url": ""
+    },
+    "custom_webhook": {
+      "enabled": false,
+      "url": ""
+    }
+  }
+}
