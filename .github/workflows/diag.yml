@@ -16,35 +16,23 @@ jobs:
           set +e
           target="https://fapi.binance.com/fapi/v1/ticker/24hr"
           enc=$(python3 -c "import urllib.parse;print(urllib.parse.quote('https://fapi.binance.com/fapi/v1/ticker/24hr',safe=''))")
-          try () {
-            name="$1"; u="$2"
+          probe () {
+            name="$1"
+            u="$2"
             printf "%-26s " "$name"
             curl -sL -m 90 -o /tmp/t.json -w "http=%{http_code} size=%{size_download} time=%{time_total}s " "$u"
-            python3 - <<'PY'
-import json
-try:
-    d = json.load(open('/tmp/t.json'))
-    if isinstance(d, list):
-        top = max(d, key=lambda x: float(x['priceChangePercent']))
-        print("OK symbols=%d top=%s %s%%" % (len(d), top['symbol'], top['priceChangePercent']))
-    else:
-        print("JSON但非列表:", str(d)[:80])
-except Exception as e:
-    print("解析失败:", type(e).__name__, open('/tmp/t.json','rb').read()[:60])
-PY
+            python3 -c "import json;d=json.load(open('/tmp/t.json'));print('OK symbols=%d top=%s %s%%'%(len(d),max(d,key=lambda x:float(x['priceChangePercent']))['symbol'],max(d,key=lambda x:float(x['priceChangePercent']))['priceChangePercent']))" 2>/dev/null || echo "解析失败"
           }
-          try "cors.lol"        "https://api.cors.lol/?url=$enc"
-          try "cors.lol-raw"    "https://api.cors.lol/?url=$enc&raw=1"
-          try "thingproxy"      "https://thingproxy.freeboard.io/fetch/$target"
-          try "proxy.cors.sh"   "https://proxy.cors.sh/$target"
-          try "codetabs"        "https://api.codetabs.com/v1/proxy?quest=$enc"
-      - name: cors.lol 稳定性（连打 3 次）
+          probe "cors.lol"      "https://api.cors.lol/?url=$enc"
+          probe "thingproxy"    "https://thingproxy.freeboard.io/fetch/$target"
+          probe "proxy.cors.sh" "https://proxy.cors.sh/$target"
+          probe "codetabs"      "https://api.codetabs.com/v1/proxy?quest=$enc"
+      - name: cors.lol 连打 3 次
         run: |
           set +e
           enc=$(python3 -c "import urllib.parse;print(urllib.parse.quote('https://fapi.binance.com/fapi/v1/ticker/24hr',safe=''))")
           for i in 1 2 3; do
             printf "第%s次 " "$i"
-            curl -sL -m 60 -o /tmp/x.json -w "http=%{http_code} size=%{size_download} time=%{time_total}s\n" \
-              "https://api.cors.lol/?url=$enc"
+            curl -sL -m 60 -o /tmp/x.json -w "http=%{http_code} size=%{size_download} time=%{time_total}s\n" "https://api.cors.lol/?url=$enc"
             sleep 3
           done
