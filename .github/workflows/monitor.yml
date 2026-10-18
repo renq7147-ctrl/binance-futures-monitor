@@ -1,0 +1,62 @@
+name: binance-futures-monitor
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      threshold:
+        description: "临时阈值(百分比)，留空则用 config.cloud.json 的 120"
+        required: false
+        default: ""
+
+concurrency:
+  group: binance-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 恢复状态缓存
+        uses: actions/cache/restore@v4
+        with:
+          path: state
+          key: state-${{ github.run_id }}
+          restore-keys: |
+            state-
+
+      - name: 环境自检
+        continue-on-error: true
+        env:
+          WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+          SENDKEY: ${{ secrets.SENDKEY }}
+          BM_BASE_URLS: ${{ secrets.BM_BASE_URLS }}
+        run: python binance_monitor.py --check --config config.cloud.json
+
+      - name: 扫描行情并推送
+        env:
+          WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+          SENDKEY: ${{ secrets.SENDKEY }}
+          BM_BASE_URLS: ${{ secrets.BM_BASE_URLS }}
+          BM_THRESHOLD: ${{ inputs.threshold }}
+        run: python binance_monitor.py --once --config config.cloud.json --state-path state/state.json
+
+      - name: 保存状态缓存
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: state
+          key: state-${{ github.run_id }}
